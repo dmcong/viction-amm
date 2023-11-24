@@ -14,6 +14,7 @@ const config: HardhatUserConfig = {
       accounts: [process.env.PRIVATE_KEY || ""],
     },
   },
+  defaultNetwork: "testnet",
 };
 
 export default config;
