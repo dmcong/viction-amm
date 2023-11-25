@@ -28,10 +28,10 @@ contract Amm is VRC25 {
 
   function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) public pure returns (uint) {
     uint k = reserveIn * reserveOut;
-    // x * y= k
-    // x2 * (y + amountIn) = k
-    // x2 = k / (y + amountIn)
-    // amountOut = reserveOut - x2
+    // x * y = k
+    // (x + amountIn) * y2 = k
+    //                  y2 = k / (x + amountIn)
+    // amountOut = reserveOut - y2
     uint amountOut = reserveOut - k / (reserveIn + amountIn);
     return amountOut;
   }

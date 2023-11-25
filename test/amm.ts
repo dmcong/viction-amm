@@ -4,74 +4,64 @@ import { describe } from "mocha";
 import { Amm, VRC25 } from "../typechain-types";
 
 describe("VictionAmm", function () {
-  let contractApple: VRC25;
-  let contractPotato: VRC25;
-  let contractAMM: Amm;
-  let nonce: number;
-  // Create Apple token
-  // Create Potato token
-  // Initialize liquidity pool
-  // Swap
+  let apple: VRC25;
+  let potato: VRC25;
+  let amm: Amm;
+
+  async function getTxRequestOption() {
+    const [signer] = await ethers.getSigners();
+    return { nonce: await signer.getNonce(), gasLimit: 4000000, signer };
+  }
 
   async function deployContractAmm() {
-    const [signer] = await ethers.getSigners();
-    const ammContract = await ethers.deployContract("Amm", [], { gasLimit: 4000000, signer, nonce: nonce++ });
+    const ammContract = await ethers.deployContract("Amm", [], await getTxRequestOption());
     await ammContract.waitForDeployment();
     console.log("Amm deployed to:", ammContract.target);
     return ammContract.target;
   }
 
   async function deployContractToken() {
-    const [signer] = await ethers.getSigners();
-    const tokenContract = await ethers.deployContract("MyToken", [], { gasLimit: 4000000, signer, nonce: nonce++ });
+    const tokenContract = await ethers.deployContract("MyToken", [], await getTxRequestOption());
     await tokenContract.waitForDeployment();
     console.log("tokenContract deployed to:", tokenContract.target);
     return tokenContract.target;
   }
 
-  it("Before test", async function () {
-    const [signer] = await ethers.getSigners();
-    nonce = await signer.getNonce();
-
+  it("Deploy AMM", async function () {
     const ammAddr = await deployContractAmm();
-    const appleAddr = await deployContractToken();
-    const potatoAddr = await deployContractToken();
-    contractAMM = await ethers.getContractAt("Amm", ammAddr, signer);
-    contractApple = await ethers.getContractAt("MyToken", appleAddr, signer);
-    contractPotato = await ethers.getContractAt("MyToken", potatoAddr, signer);
+    amm = await ethers.getContractAt("Amm", ammAddr);
   });
 
-  it("Approve", async function () {
-    const tx1 = await contractApple.approve(contractAMM.target, 10000, { gasLimit: 4000000 });
+  it("Deploy Apple", async function () {
+    const appleAddr = await deployContractToken();
+    apple = await ethers.getContractAt("MyToken", appleAddr);
+  });
+
+  it("Deploy Potato", async function () {
+    const potatoAddr = await deployContractToken();
+    potato = await ethers.getContractAt("MyToken", potatoAddr);
+  });
+
+  it("Approve Apple & Potato", async function () {
+    const tx1 = await apple.approve(amm.target, 10000, await getTxRequestOption());
     await tx1.wait();
-    const tx2 = await contractPotato.approve(contractAMM.target, 10000, { gasLimit: 4000000 });
+    const tx2 = await potato.approve(amm.target, 10000, await getTxRequestOption());
     await tx2.wait();
   });
 
   it("Initialize liquidity", async function () {
-    const tx = await contractAMM.initializeLiquidity(contractApple.target, contractPotato.target, 1000, 1000, {
-      gasLimit: 4000000,
-    });
+    const tx = await amm.initializeLiquidity(apple.target, potato.target, 1000, 1000, await getTxRequestOption());
     await tx.wait();
 
-    expect(await contractAMM.reserveApple())
-      .to.equal(await contractAMM.reservePotato())
-      .to.equal(1000);
+    expect(await amm.reserveApple()).to.equal(1000);
+    expect(await amm.reservePotato()).to.equal(1000);
   });
 
   it("Swap", async function () {
-    const [signer] = await ethers.getSigners();
-    const prevBalance = await ethers.provider.getBalance(signer.address);
-    console.log("prevBalance", prevBalance);
-
-    const tx = await contractAMM.swapPotatoToApple(1000, { gasLimit: 4000000, nonce: nonce++ });
+    const tx = await amm.swapPotatoToApple(10, await getTxRequestOption());
     await tx.wait();
-    const appleReserve = await contractAMM.reserveApple();
-    const potatoReserve = await contractAMM.reservePotato();
-    console.log("appleReserve:", appleReserve);
-    console.log("potatoReserve:", potatoReserve);
 
-    const nextBalance = await ethers.provider.getBalance(signer.address);
-    console.log("nextBalance", nextBalance);
+    expect(await amm.reserveApple()).to.equal(990n);
+    expect(await amm.reservePotato()).to.equal(1010n);
   });
 });
